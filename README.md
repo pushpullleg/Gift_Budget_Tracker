@@ -135,10 +135,10 @@ Categories are validated on both client and server side.
 The app requires configuration in two places:
 
 1. **Google Apps Script** (`backend/Code.gs`):
-   - Spreadsheet ID
-   - API Key
-   - Starting Budget (your gift amount, e.g., 2500)
+   - Uses Script Properties (environment variables) for secure storage
+   - Run `setupConfig()` function once to set: Spreadsheet ID, API Key, Starting Budget
    - See `backend/Code.gs.example` for the template
+   - See `docs/SECURITY_SETUP.md` for detailed setup instructions
 
 2. **Frontend** (`js/script.js`):
    - Google Apps Script Web App URL

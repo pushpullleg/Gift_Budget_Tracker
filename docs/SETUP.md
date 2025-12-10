@@ -56,22 +56,33 @@ The setup involves three main components:
 
 ### 2.2 Configure the Script
 
-Update the `CONFIG` object at the top of `Code.gs`:
+The script uses **Script Properties** (Google Apps Script's environment variables) for secure storage.
 
-```javascript
-const CONFIG = {
-  SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID_HERE',  // From Step 1
-  API_KEY: 'YOUR_API_KEY_HERE',                // Generate below
-  SHEET_NAME: 'Transactions',
-  STARTING_BUDGET: 2500                         // Your budget amount
-};
-```
+**Option A: Using Script Properties (Recommended - More Secure)**
+
+1. Find the `setupConfig()` function in `Code.gs`
+2. Update it with your values:
+   ```javascript
+   function setupConfig() {
+     const properties = PropertiesService.getScriptProperties();
+     properties.setProperties({
+       'SPREADSHEET_ID': 'YOUR_SPREADSHEET_ID_HERE',  // From Step 1
+       'API_KEY': 'YOUR_API_KEY_HERE',                // Generate below
+       'SHEET_NAME': 'Transactions',
+       'STARTING_BUDGET': '2500'                       // Your budget amount
+     });
+   }
+   ```
+3. **Run the function once**: Select `setupConfig` from dropdown → Click Run
+4. **Delete or comment out** `setupConfig()` after running (for security)
 
 **Generate an API Key:**
 1. Go to https://www.random.org/strings/
 2. Generate: 1 string, 32 characters, Alphanumeric
 3. Copy the result
-4. Use this same key in both `Code.gs` and `js/script.js`
+4. Use this same key in both `Code.gs` (via setupConfig) and `js/script.js`
+
+**See `docs/SECURITY_SETUP.md` for detailed instructions on using Script Properties.**
 
 ### 2.3 Deploy as Web App
 

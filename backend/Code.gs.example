@@ -22,22 +22,49 @@
 /**
  * Application configuration
  * 
- * IMPORTANT: Update these values before deployment
+ * Uses Script Properties (Google Apps Script's equivalent of environment variables)
+ * for secure storage of sensitive values.
+ * 
+ * SETUP: Run the setupConfig() function once to set your values
  */
-const CONFIG = {
-  // Your Google Sheet ID (from the URL: docs.google.com/spreadsheets/d/YOUR_ID_HERE/edit)
-  SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID_HERE',
+function getConfig() {
+  const properties = PropertiesService.getScriptProperties();
   
-  // API key (must match the key in js/script.js)
-  // Generate a random string, e.g., use: Math.random().toString(36).substring(2, 15)
-  API_KEY: 'YOUR_API_KEY_HERE',
+  return {
+    SPREADSHEET_ID: properties.getProperty('SPREADSHEET_ID') || '',
+    API_KEY: properties.getProperty('API_KEY') || '',
+    SHEET_NAME: properties.getProperty('SHEET_NAME') || 'Transactions',
+    STARTING_BUDGET: parseFloat(properties.getProperty('STARTING_BUDGET')) || 2500
+  };
+}
+
+/**
+ * ONE-TIME SETUP: Run this function to set your configuration values
+ * 
+ * Instructions:
+ * 1. Replace the values below with your actual values
+ * 2. Run this function once (Run → setupConfig)
+ * 3. Delete this function or comment it out after setup (for security)
+ * 4. Your values are now stored securely in Script Properties
+ */
+function setupConfig() {
+  const properties = PropertiesService.getScriptProperties();
   
-  // Sheet tab name (default: "Transactions")
-  SHEET_NAME: 'Transactions',
+  // Set your values here (replace with your actual values)
+  properties.setProperties({
+    'SPREADSHEET_ID': 'YOUR_SPREADSHEET_ID_HERE',  // Replace with your Sheet ID
+    'API_KEY': 'YOUR_API_KEY_HERE',                 // Replace with your API key
+    'SHEET_NAME': 'Transactions',                   // Usually 'Transactions'
+    'STARTING_BUDGET': '2500'                       // Your budget amount as string
+  });
   
-  // Starting gift budget amount (e.g., 2500 for $2,500)
-  STARTING_BUDGET: 2500
-};
+  Logger.log('Configuration saved successfully!');
+  Logger.log('You can now delete or comment out the setupConfig() function.');
+}
+
+// For backward compatibility, create a CONFIG constant that reads from properties
+// This allows existing code to work without changes
+const CONFIG = getConfig();
 
 // ============================================================================
 // CORS HANDLING
@@ -48,14 +75,9 @@ const CONFIG = {
  * Required for cross-origin requests from GitHub Pages
  */
 function doOptions() {
+  // CORS headers are handled automatically by Google Apps Script when deployed with "Anyone" access
   return ContentService.createTextOutput('')
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeaders({
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '3600'
-    });
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ============================================================================
@@ -69,12 +91,8 @@ function doOptions() {
  * @returns {TextOutput} JSON response with success status and budget info
  */
 function doPost(e) {
-  // Set CORS headers for all responses
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
+  // Note: CORS headers are automatically handled by Google Apps Script when deployed with "Anyone" access
+  // No need to manually set headers
 
   try {
     // Parse request data
@@ -82,26 +100,25 @@ function doPost(e) {
     
     // Handle different actions
     if (requestData.action === 'getBudget') {
-      return handleGetBudget(headers);
+      return handleGetBudget();
     }
     
     if (requestData.action === 'getLastEntry') {
-      return getLastEntry(requestData, headers);
+      return getLastEntry(requestData);
     }
     
     if (requestData.action === 'undo') {
-      return handleUndo(requestData, headers);
+      return handleUndo(requestData);
     }
     
     // Default action: add expense
-    return handleAddExpense(requestData, headers);
+    return handleAddExpense(requestData);
     
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Server error: ' + error.toString()
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -116,14 +133,13 @@ function doPost(e) {
  * @param {Object} headers - CORS headers
  * @returns {TextOutput} JSON response
  */
-function handleAddExpense(requestData, headers) {
+function handleAddExpense(requestData) {
   // Validate API key
   if (requestData.apiKey !== CONFIG.API_KEY) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Invalid API key'
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   
   // Validate input
@@ -132,8 +148,7 @@ function handleAddExpense(requestData, headers) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Invalid amount'
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   
   const validCategories = ['Groceries', 'Dining', 'Shopping', 'Travel', 'Health', 'Personal', 'Gifts', 'Misc'];
@@ -141,8 +156,7 @@ function handleAddExpense(requestData, headers) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Invalid category'
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   
   // Get sheet and append data
@@ -164,8 +178,7 @@ function handleAddExpense(requestData, headers) {
     success: true,
     message: 'Expense added successfully',
     budget: budgetInfo
-  })).setMimeType(ContentService.MimeType.JSON)
-    .setHeaders(headers);
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -176,14 +189,13 @@ function handleAddExpense(requestData, headers) {
  * @param {Object} headers - CORS headers
  * @returns {TextOutput} JSON response with last entry details
  */
-function getLastEntry(requestData, headers) {
+function getLastEntry(requestData) {
   // Validate API key
   if (requestData.apiKey !== CONFIG.API_KEY) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Invalid API key'
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   const sheet = getSheet();
   const lastRow = sheet.getLastRow();
@@ -192,8 +204,7 @@ function getLastEntry(requestData, headers) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'No expenses found'
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   
   // Get last row data (excluding header)
@@ -207,8 +218,7 @@ function getLastEntry(requestData, headers) {
       category: lastRowData[2],
       notes: lastRowData[3] || ''
     }
-  })).setMimeType(ContentService.MimeType.JSON)
-    .setHeaders(headers);
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -218,14 +228,13 @@ function getLastEntry(requestData, headers) {
  * @param {Object} headers - CORS headers
  * @returns {TextOutput} JSON response
  */
-function handleUndo(requestData, headers) {
+function handleUndo(requestData) {
   // Validate API key
   if (requestData.apiKey !== CONFIG.API_KEY) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Invalid API key'
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   
   const sheet = getSheet();
@@ -235,8 +244,7 @@ function handleUndo(requestData, headers) {
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'No expenses to undo'
-    })).setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   
   // Get last entry details before deleting (for confirmation message)
@@ -258,8 +266,7 @@ function handleUndo(requestData, headers) {
     message: 'Last expense deleted',
     deletedEntry: deletedEntry,
     budget: budgetInfo
-  })).setMimeType(ContentService.MimeType.JSON)
-    .setHeaders(headers);
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -268,14 +275,13 @@ function handleUndo(requestData, headers) {
  * @param {Object} headers - CORS headers
  * @returns {TextOutput} JSON response with budget data
  */
-function handleGetBudget(headers) {
+function handleGetBudget() {
   const budgetInfo = getBudgetInfo();
   
   return ContentService.createTextOutput(JSON.stringify({
     success: true,
     budget: budgetInfo
-  })).setMimeType(ContentService.MimeType.JSON)
-    .setHeaders(headers);
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ============================================================================

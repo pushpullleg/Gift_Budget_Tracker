@@ -470,13 +470,19 @@ async function handleUndo() {
         confirmMessage = 'Delete the last expense entry?';
     }
 
-    if (!confirm(confirmMessage)) return;
+    // Immediately show a loading/disabled state so the user sees the click
+    setButtonLoading(undoBtn, true, 'Undoing...');
+
+    if (!confirm(confirmMessage)) {
+        // If user cancels, restore button state
+        setButtonLoading(undoBtn, false);
+        return;
+    }
 
     // Show immediate inline status while the request is in flight
     showFeedback('Undoing last expense...', 'success');
 
     loading.classList.add('show');
-    setButtonLoading(undoBtn, true, 'Undoing...');
 
     try {
         const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {

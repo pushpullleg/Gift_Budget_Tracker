@@ -2,6 +2,10 @@
 
 A simple, mobile-friendly web application for tracking expenses. Hosted on GitHub Pages, connects to Google Sheets via Google Apps Script.
 
+## ⚠️ Security Notice
+
+**IMPORTANT**: This repository contains production credentials in git history. See [SECURITY.md](SECURITY.md) for details on securing your deployment.
+
 ## Features
 
 - **Ultra-simple form**: Just amount, category, and optional notes

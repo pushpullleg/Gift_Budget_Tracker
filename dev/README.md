@@ -10,6 +10,7 @@ This folder contains personal development notes and reference materials. These a
 - **TROUBLESHOOTING.md**: Debugging notes and solutions
 - **test-locally.md**: Local testing instructions
 - **sampleindexcode.md**: Reference design code
+- **RENAME_INSTRUCTIONS.md**: Instructions for renaming the project (one-time task)
 
 ## Note
 

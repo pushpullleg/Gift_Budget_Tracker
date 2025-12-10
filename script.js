@@ -1,11 +1,11 @@
 /**
- * Budget Tracker - Client-Side Application
+ * Gift Budget Tracker - Client-Side Application
  * 
  * This file handles all client-side logic including:
  * - Form validation and user input handling
  * - API communication with Google Apps Script
  * - UI updates and feedback
- * - Budget display and formatting
+ * - Gift budget display and formatting
  */
 
 // ============================================================================

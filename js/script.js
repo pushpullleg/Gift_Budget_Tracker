@@ -71,7 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     checkConfig();
     fetchBudget(); // Load budget on page load
-    updateUndoButtonState(); // Check if undo is available
+    // Update undo button state after budget loads (non-blocking)
+    setTimeout(() => updateUndoButtonState(), 500);
 });
 
 // ============================================================================
@@ -348,15 +349,48 @@ async function getLastEntry() {
 
 /**
  * Updates the undo button state based on whether entries exist
+ * Falls back to enabled if check fails (for backward compatibility)
  */
 async function updateUndoButtonState() {
-    const lastEntry = await getLastEntry();
-    if (lastEntry) {
+    try {
+        // Try to get last entry first (if backend supports it)
+        const lastEntry = await getLastEntry();
+        if (lastEntry) {
+            undoBtn.disabled = false;
+            undoBtn.title = `Undo last entry: ${formatCurrency(lastEntry.amount)} - ${lastEntry.category}`;
+            return;
+        }
+        
+        // If getLastEntry returns null, check budget to see if expenses exist
+        // This works even if getLastEntry action isn't implemented yet
+        const budgetResponse = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ apiKey: CONFIG.API_KEY, action: 'getBudget' })
+        });
+        
+        if (budgetResponse.ok) {
+            const budgetResult = await budgetResponse.json();
+            if (budgetResult.success && budgetResult.budget && budgetResult.budget.totalSpent > 0) {
+                // There are expenses, enable button
+                undoBtn.disabled = false;
+                undoBtn.title = 'Undo last expense entry';
+            } else {
+                // No expenses found
+                undoBtn.disabled = true;
+                undoBtn.title = 'No expenses to undo';
+            }
+        } else {
+            // If budget check fails, enable button anyway
+            undoBtn.disabled = false;
+            undoBtn.title = 'Undo last expense entry';
+        }
+    } catch (error) {
+        // If any check fails, enable button anyway (backward compatibility)
+        // User can still try to undo, backend will handle error
+        console.warn('Could not check undo availability:', error);
         undoBtn.disabled = false;
-        undoBtn.title = `Undo last entry: ${formatCurrency(lastEntry.amount)} - ${lastEntry.category}`;
-    } else {
-        undoBtn.disabled = true;
-        undoBtn.title = 'No expenses to undo';
+        undoBtn.title = 'Undo last expense entry';
     }
 }
 
@@ -365,29 +399,31 @@ async function updateUndoButtonState() {
  * Shows what will be deleted and confirms with user before deletion
  */
 async function handleUndo() {
-    // First, get the last entry to show user what will be deleted
-    const lastEntry = await getLastEntry();
+    // First, try to get the last entry to show user what will be deleted
+    let lastEntry = await getLastEntry();
     
-    if (!lastEntry) {
-        showFeedback('No expenses to undo', 'error');
-        return;
+    // If getLastEntry fails (backend not updated), use simpler confirmation
+    let confirmMessage;
+    if (lastEntry) {
+        // Format the date for display
+        const entryDate = new Date(lastEntry.date);
+        const dateStr = entryDate.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+
+        // Show detailed confirmation
+        confirmMessage = `Delete the last expense?\n\n` +
+            `Amount: ${formatCurrency(lastEntry.amount)}\n` +
+            `Category: ${lastEntry.category}\n` +
+            `Date: ${dateStr}` +
+            (lastEntry.notes ? `\nNotes: ${lastEntry.notes}` : '');
+    } else {
+        // Fallback to simple confirmation if we can't get entry details
+        confirmMessage = 'Delete the last expense entry?';
     }
-
-    // Format the date for display
-    const entryDate = new Date(lastEntry.date);
-    const dateStr = entryDate.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-    });
-
-    // Show detailed confirmation
-    const confirmMessage = `Delete the last expense?\n\n` +
-        `Amount: ${formatCurrency(lastEntry.amount)}\n` +
-        `Category: ${lastEntry.category}\n` +
-        `Date: ${dateStr}` +
-        (lastEntry.notes ? `\nNotes: ${lastEntry.notes}` : '');
 
     if (!confirm(confirmMessage)) return;
 

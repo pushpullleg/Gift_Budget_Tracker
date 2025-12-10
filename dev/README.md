@@ -1,18 +1,16 @@
 # Development Notes
 
-This folder contains personal development notes and reference materials. These are for the developer's reference only and not intended for end users.
+Personal development notes and reference materials. For developer reference only.
 
-## Contents
+## Files
 
-- **DEPLOYMENT_GUIDE.md**: Detailed deployment instructions (personal reference)
-- **QUICK_DEPLOY.md**: Quick deployment checklist
-- **GIT_PUSH_GUIDE.md**: Git command reference
-- **TROUBLESHOOTING.md**: Debugging notes and solutions
-- **test-locally.md**: Local testing instructions
-- **sampleindexcode.md**: Reference design code
-- **RENAME_INSTRUCTIONS.md**: Instructions for renaming the project (one-time task)
+- **DEPLOYMENT.md** - Complete guide for deploying to GitHub Pages
+- **TROUBLESHOOTING.md** - Common issues and solutions
+- **REFERENCE.md** - Quick reference for project info and one-time tasks
 
-## Note
+## Organization
 
-These files are for development reference only. User-facing documentation is in the `docs/` folder.
-
+Files are organized chronologically by workflow:
+1. **Deployment** - How to deploy the app
+2. **Troubleshooting** - How to fix issues
+3. **Reference** - Quick lookup for project details

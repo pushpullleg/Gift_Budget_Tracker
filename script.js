@@ -1,0 +1,316 @@
+// Configuration
+const CONFIG = {
+    // Replace with your Google Apps Script Web App URL after deployment
+    GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyNel64mjqFn1PeAQYXzUT6_JIhUNqPGk2GQEP69hDpOyMZjh8VUjNgxQiYJdDaIdE3tw/exec',
+    // Replace with your API key (generate a random string)
+    API_KEY: '43619930614212440190980972744666'
+};
+
+// State
+let selectedCategory = null;
+
+// Elements
+const amountInput = document.getElementById('amount');
+const notesToggle = document.getElementById('notesToggle');
+const notesWrapper = document.getElementById('notesWrapper');
+const notesInput = document.getElementById('notes');
+const categoryButtons = document.querySelectorAll('.category-btn');
+const quickButtons = document.querySelectorAll('.quick-btn');
+const submitBtn = document.getElementById('submitBtn');
+const undoBtn = document.getElementById('undoBtn');
+const form = document.getElementById('expenseForm');
+const loading = document.getElementById('loading');
+const feedback = document.getElementById('feedback');
+const amountError = document.getElementById('amountError');
+const categoryError = document.getElementById('categoryError');
+const budgetRemaining = document.getElementById('budgetRemaining');
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    setupEventListeners();
+    checkConfig();
+    fetchBudget(); // Load budget on page load
+});
+
+function checkConfig() {
+    if (CONFIG.GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE' || CONFIG.API_KEY === 'YOUR_SECRET_API_KEY_HERE') {
+        showFeedback('Please configure GOOGLE_SCRIPT_URL and API_KEY in script.js', 'error');
+    }
+}
+
+function setupEventListeners() {
+    // Toggle notes section
+    notesToggle.addEventListener('click', () => {
+        notesWrapper.classList.toggle('show');
+        const isShowing = notesWrapper.classList.contains('show');
+        notesToggle.innerHTML = isShowing 
+            ? '<span>Hide notes</span>' 
+            : '<span>Add notes</span>';
+    });
+
+    // Quick amount buttons
+    quickButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const amount = btn.dataset.amount;
+            amountInput.value = amount;
+            amountError.classList.remove('show');
+            amountInput.classList.remove('error');
+        });
+    });
+
+    // Category selection
+    categoryButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            categoryButtons.forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedCategory = btn.dataset.category;
+            categoryError.classList.remove('show');
+        });
+    });
+
+    // Amount input validation
+    amountInput.addEventListener('input', validateAmount);
+    amountInput.addEventListener('blur', formatAmount);
+
+    // Form submission
+    form.addEventListener('submit', handleSubmit);
+
+    // Undo button
+    undoBtn.addEventListener('click', handleUndo);
+}
+
+function validateAmount(e) {
+    const value = e.target.value;
+    // Allow only numbers and one decimal point
+    const cleaned = value.replace(/[^\d.]/g, '');
+    
+    // Prevent multiple decimal points
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+        e.target.value = parts[0] + '.' + parts.slice(1).join('');
+    } else {
+        e.target.value = cleaned;
+    }
+
+    // Remove error styling if valid
+    if (isValidAmount(e.target.value)) {
+        e.target.classList.remove('error');
+        amountError.classList.remove('show');
+    }
+}
+
+function formatAmount(e) {
+    const value = e.target.value.trim();
+    if (!value) return;
+
+    if (!isValidAmount(value)) {
+        e.target.classList.add('error');
+        amountError.classList.add('show');
+        return;
+    }
+
+    const num = parseFloat(value);
+    if (isNaN(num) || num <= 0) {
+        e.target.classList.add('error');
+        amountError.classList.add('show');
+        return;
+    }
+
+    // Format to 2 decimal places
+    e.target.value = num.toFixed(2);
+    e.target.classList.remove('error');
+    amountError.classList.remove('show');
+}
+
+function isValidAmount(value) {
+    if (!value || value.trim() === '') return false;
+    
+    // Check for invalid patterns like "20.5.3" or "twenty"
+    if (value.match(/[^\d.]/) && !value.match(/^\d+\.?\d*$/)) return false;
+    
+    const num = parseFloat(value);
+    return !isNaN(num) && num > 0 && isFinite(num);
+}
+
+// Show feedback
+function showFeedback(message, type) {
+    feedback.textContent = message;
+    feedback.className = `feedback show ${type}`;
+    if (type === 'success') {
+        setTimeout(() => {
+            feedback.classList.remove('show');
+        }, 3000);
+    }
+}
+
+// Form submission
+async function handleSubmit(e) {
+    e.preventDefault();
+    
+    // Reset errors
+    amountError.classList.remove('show');
+    categoryError.classList.remove('show');
+    amountInput.classList.remove('error');
+
+    // Validate
+    const amount = amountInput.value.trim();
+    let hasError = false;
+
+    if (!isValidAmount(amount)) {
+        amountError.classList.add('show');
+        amountInput.classList.add('error');
+        hasError = true;
+    }
+
+    if (!selectedCategory) {
+        categoryError.classList.add('show');
+        hasError = true;
+    }
+
+    if (hasError) return;
+
+    // Show loading
+    loading.classList.add('show');
+    submitBtn.disabled = true;
+
+    // Prepare data
+    const data = {
+        apiKey: CONFIG.API_KEY,
+        amount: parseFloat(amount).toFixed(2),
+        category: selectedCategory,
+        notes: notesInput.value.trim()
+    };
+
+    try {
+        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showFeedback('Expense added successfully', 'success');
+            // Update budget if returned
+            if (result.budget) {
+                updateBudgetDisplay(result.budget);
+            } else {
+                fetchBudget(); // Fetch budget if not returned
+            }
+            // Reset form
+            resetForm();
+        } else {
+            showFeedback(result.error || 'Failed to add expense', 'error');
+        }
+    } catch (error) {
+        showFeedback('Network error. Please try again.', 'error');
+        console.error('Error:', error);
+    } finally {
+        loading.classList.remove('show');
+        submitBtn.disabled = false;
+    }
+}
+
+// Undo last entry
+async function handleUndo() {
+    if (!confirm('Delete the last expense entry?')) return;
+
+    loading.classList.add('show');
+    undoBtn.disabled = true;
+
+    try {
+        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                apiKey: CONFIG.API_KEY,
+                action: 'undo'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showFeedback('Last expense deleted', 'success');
+            // Update budget if returned
+            if (result.budget) {
+                updateBudgetDisplay(result.budget);
+            } else {
+                fetchBudget(); // Fetch budget if not returned
+            }
+        } else {
+            showFeedback(result.error || 'Failed to undo', 'error');
+        }
+    } catch (error) {
+        showFeedback('Network error. Please try again.', 'error');
+        console.error('Error:', error);
+    } finally {
+        loading.classList.remove('show');
+        undoBtn.disabled = false;
+    }
+}
+
+function resetForm() {
+    amountInput.value = '';
+    amountInput.classList.remove('error');
+    notesInput.value = '';
+    categoryButtons.forEach(b => b.classList.remove('selected'));
+    selectedCategory = null;
+    notesWrapper.classList.remove('show');
+    notesToggle.innerHTML = '<span>Add notes</span>';
+    amountError.classList.remove('show');
+    categoryError.classList.remove('show');
+    amountInput.focus();
+}
+
+// Fetch budget from Google Sheets
+async function fetchBudget() {
+    try {
+        const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                apiKey: CONFIG.API_KEY,
+                action: 'getBudget'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.budget) {
+            updateBudgetDisplay(result.budget);
+        } else {
+            budgetRemaining.textContent = '$0.00';
+        }
+    } catch (error) {
+        console.error('Error fetching budget:', error);
+        budgetRemaining.textContent = 'Error';
+    }
+}
+
+// Update budget display
+function updateBudgetDisplay(budget) {
+    const remaining = budget.remaining || 0;
+    budgetRemaining.textContent = formatCurrency(remaining);
+    
+    // Optional: Change color if budget is low
+    if (remaining < 0) {
+        budgetRemaining.style.color = '#B71C1C';
+    } else if (remaining < budget.startingBudget * 0.2) {
+        budgetRemaining.style.color = '#D97706';
+    } else {
+        budgetRemaining.style.color = '#1A1A1A';
+    }
+}
+
+// Format currency with commas
+function formatCurrency(amount) {
+    return '$' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}

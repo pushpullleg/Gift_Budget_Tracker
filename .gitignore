@@ -1,0 +1,17 @@
+# Google Apps Script files (not needed on GitHub)
+Code.gs
+
+# Documentation files (optional - you can include README.md if you want)
+GOOGLE_SHEETS_SETUP.md
+DEPLOYMENT_GUIDE.md
+QUICK_DEPLOY.md
+GIT_PUSH_GUIDE.md
+test-locally.md
+
+# Reference/sample files
+sampleindexcode.md
+
+# OS files
+.DS_Store
+Thumbs.db
+

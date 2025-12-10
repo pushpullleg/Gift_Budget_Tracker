@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Budget Tracker</h1>
+        
+        <div class="budget-section">
+            <div class="budget-info">Budget Remaining</div>
+            <div class="budget-remaining" id="budgetRemaining">Loading...</div>
+        </div>
+
+        <form id="expenseForm">
+            <!-- Amount Section -->
+            <div class="form-section">
+                <div class="amount-section">
+                    <label for="amount">Amount</label>
+                    <div class="amount-input-wrapper">
+                        <span class="dollar-sign">$</span>
+                        <input type="text" id="amount" placeholder="0.00" inputmode="decimal" autocomplete="off">
+                    </div>
+                    <div class="error-text" id="amountError">Please enter a valid amount</div>
+                    
+                    <div class="quick-amounts">
+                        <button type="button" class="quick-btn" data-amount="5">$5</button>
+                        <button type="button" class="quick-btn" data-amount="10">$10</button>
+                        <button type="button" class="quick-btn" data-amount="20">$20</button>
+                        <button type="button" class="quick-btn" data-amount="50">$50</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Section -->
+            <div class="form-section">
+                <div class="category-section">
+                    <label>Category</label>
+                    <div class="categories">
+                        <div class="category-btn" data-category="Groceries">
+                            <div class="category-name">Groceries</div>
+                        </div>
+                        <div class="category-btn" data-category="Dining">
+                            <div class="category-name">Dining</div>
+                        </div>
+                        <div class="category-btn" data-category="Shopping">
+                            <div class="category-name">Shopping</div>
+                        </div>
+                        <div class="category-btn" data-category="Travel">
+                            <div class="category-name">Travel</div>
+                        </div>
+                        <div class="category-btn" data-category="Health">
+                            <div class="category-name">Health</div>
+                        </div>
+                        <div class="category-btn" data-category="Personal">
+                            <div class="category-name">Personal</div>
+                        </div>
+                        <div class="category-btn" data-category="Gifts">
+                            <div class="category-name">Gifts</div>
+                        </div>
+                        <div class="category-btn" data-category="Misc">
+                            <div class="category-name">Misc</div>
+                        </div>
+                    </div>
+                    <div class="error-text" id="categoryError">Please select a category</div>
+                </div>
+            </div>
+
+            <!-- Notes Section (Collapsible) -->
+            <div class="form-section">
+                <div class="notes-section">
+                    <button type="button" class="notes-toggle" id="notesToggle">
+                        <span>Add notes</span>
+                    </button>
+                    <div class="notes-input-wrapper" id="notesWrapper">
+                        <textarea id="notes" placeholder="Optional notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="actions">
+                <button type="button" class="undo-btn" id="undoBtn">Undo</button>
+                <button type="submit" class="submit-btn" id="submitBtn">Add Expense</button>
+            </div>
+        </form>
+
+        <!-- Loading Spinner -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p class="loading-text">Processing...</p>
+        </div>
+
+        <!-- Feedback Message -->
+        <div class="feedback" id="feedback"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+

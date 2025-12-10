@@ -419,6 +419,9 @@ async function handleUndo() {
 
     if (!confirm(confirmMessage)) return;
 
+    // Show immediate inline status while the request is in flight
+    showFeedback('Undoing last expense...', 'success');
+
     loading.classList.add('show');
     undoBtn.disabled = true;
 

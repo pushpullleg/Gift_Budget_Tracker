@@ -70,8 +70,10 @@ const budgetRemaining = document.getElementById('budgetRemaining');
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     checkConfig();
+    // Enable undo button by default (will be disabled later only if we're certain there are no expenses)
+    undoBtn.disabled = false;
     fetchBudget(); // Load budget on page load
-    // Update undo button state after budget loads (non-blocking)
+    // Update undo button state after budget loads (non-blocking, doesn't block UI)
     setTimeout(() => updateUndoButtonState(), 500);
 });
 
@@ -348,48 +350,24 @@ async function getLastEntry() {
 }
 
 /**
- * Updates the undo button state based on whether entries exist
- * Falls back to enabled if check fails (for backward compatibility)
+ * Updates the undo button state and tooltip
+ * Button is always enabled - backend safely handles the case when no entries exist
+ * (Backend checks if lastRow <= 1 and returns error without deleting header)
  */
 async function updateUndoButtonState() {
+    // Button is always enabled - backend protects against deleting header row
+    undoBtn.disabled = false;
+    
     try {
-        // Try to get last entry first (if backend supports it)
+        // Try to get last entry to show helpful tooltip (if backend supports it)
         const lastEntry = await getLastEntry();
         if (lastEntry) {
-            undoBtn.disabled = false;
             undoBtn.title = `Undo last entry: ${formatCurrency(lastEntry.amount)} - ${lastEntry.category}`;
-            return;
-        }
-        
-        // If getLastEntry returns null, check budget to see if expenses exist
-        // This works even if getLastEntry action isn't implemented yet
-        const budgetResponse = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ apiKey: CONFIG.API_KEY, action: 'getBudget' })
-        });
-        
-        if (budgetResponse.ok) {
-            const budgetResult = await budgetResponse.json();
-            if (budgetResult.success && budgetResult.budget && budgetResult.budget.totalSpent > 0) {
-                // There are expenses, enable button
-                undoBtn.disabled = false;
-                undoBtn.title = 'Undo last expense entry';
-            } else {
-                // No expenses found
-                undoBtn.disabled = true;
-                undoBtn.title = 'No expenses to undo';
-            }
         } else {
-            // If budget check fails, enable button anyway
-            undoBtn.disabled = false;
             undoBtn.title = 'Undo last expense entry';
         }
     } catch (error) {
-        // If any check fails, enable button anyway (backward compatibility)
-        // User can still try to undo, backend will handle error
-        console.warn('Could not check undo availability:', error);
-        undoBtn.disabled = false;
+        // If check fails, just use default tooltip
         undoBtn.title = 'Undo last expense entry';
     }
 }

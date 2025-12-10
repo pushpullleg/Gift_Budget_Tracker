@@ -91,7 +91,8 @@ gift-budget-tracker/
 │   ├── SECURITY.md        # Security considerations
 │   └── ARCHITECTURE.md    # Technical architecture
 ├── backend/                # Google Apps Script code
-│   └── Code.gs            # Server-side API (gitignored)
+│   ├── Code.gs            # Server-side API (gitignored, see example)
+│   └── Code.gs.example     # Template for Google Apps Script setup
 └── dev/                    # Development notes (personal reference)
     ├── DEPLOYMENT_GUIDE.md
     ├── TROUBLESHOOTING.md
@@ -137,12 +138,12 @@ The app requires configuration in two places:
    - Spreadsheet ID
    - API Key
    - Starting Budget (your gift amount, e.g., 2500)
+   - See `backend/Code.gs.example` for the template
 
 2. **Frontend** (`js/script.js`):
    - Google Apps Script Web App URL
    - API Key (must match backend)
-
-See `js/script.js.example` for the template.
+   - See `js/script.js.example` for the template
 
 ## Documentation
 

@@ -50,7 +50,7 @@ The setup involves three main components:
 1. Go to [Google Apps Script](https://script.google.com)
 2. Click **"New Project"**
 3. Delete the default `myFunction` code
-4. Open `backend/Code.gs` from this repository
+4. Open `backend/Code.gs.example` from this repository
 5. Copy the entire file contents
 6. Paste into the Apps Script editor
 

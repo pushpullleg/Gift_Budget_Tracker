@@ -1,0 +1,278 @@
+/**
+ * Gift Budget Tracker - Google Apps Script Backend
+ * 
+ * This file handles all server-side logic including:
+ * - API endpoint for expense submission
+ * - Budget calculation from Google Sheets
+ * - Undo functionality
+ * - CORS handling
+ * 
+ * SETUP INSTRUCTIONS:
+ * 1. Open Google Apps Script (script.google.com)
+ * 2. Create a new project
+ * 3. Replace the default code with this file
+ * 4. Update the CONFIG values below
+ * 5. Deploy as a Web App
+ */
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+/**
+ * Application configuration
+ * 
+ * IMPORTANT: Update these values before deployment
+ */
+const CONFIG = {
+  // Your Google Sheet ID (from the URL: docs.google.com/spreadsheets/d/YOUR_ID_HERE/edit)
+  SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID_HERE',
+  
+  // API key (must match the key in js/script.js)
+  // Generate a random string, e.g., use: Math.random().toString(36).substring(2, 15)
+  API_KEY: 'YOUR_API_KEY_HERE',
+  
+  // Sheet tab name (default: "Transactions")
+  SHEET_NAME: 'Transactions',
+  
+  // Starting gift budget amount (e.g., 2500 for $2,500)
+  STARTING_BUDGET: 2500
+};
+
+// ============================================================================
+// CORS HANDLING
+// ============================================================================
+
+/**
+ * Handle OPTIONS request for CORS preflight
+ * Required for cross-origin requests from GitHub Pages
+ */
+function doOptions() {
+  return ContentService.createTextOutput('')
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '3600'
+    });
+}
+
+// ============================================================================
+// MAIN API ENDPOINT
+// ============================================================================
+
+/**
+ * Main POST endpoint - receives expense data from web form
+ * 
+ * @param {Object} e - Event object containing postData
+ * @returns {TextOutput} JSON response with success status and budget info
+ */
+function doPost(e) {
+  // Set CORS headers for all responses
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+
+  try {
+    // Parse request data
+    const requestData = JSON.parse(e.postData.contents);
+    
+    // Handle different actions
+    if (requestData.action === 'getBudget') {
+      return handleGetBudget(headers);
+    }
+    
+    if (requestData.action === 'undo') {
+      return handleUndo(headers);
+    }
+    
+    // Default action: add expense
+    return handleAddExpense(requestData, headers);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Server error: ' + error.toString()
+    })).setMimeType(ContentService.MimeType.JSON)
+      .setHeaders(headers);
+  }
+}
+
+// ============================================================================
+// REQUEST HANDLERS
+// ============================================================================
+
+/**
+ * Handles adding a new expense
+ * 
+ * @param {Object} requestData - Request data containing apiKey, amount, category, notes
+ * @param {Object} headers - CORS headers
+ * @returns {TextOutput} JSON response
+ */
+function handleAddExpense(requestData, headers) {
+  // Validate API key
+  if (requestData.apiKey !== CONFIG.API_KEY) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Invalid API key'
+    })).setMimeType(ContentService.MimeType.JSON)
+      .setHeaders(headers);
+  }
+  
+  // Validate input
+  const amount = parseFloat(requestData.amount);
+  if (isNaN(amount) || amount <= 0) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Invalid amount'
+    })).setMimeType(ContentService.MimeType.JSON)
+      .setHeaders(headers);
+  }
+  
+  const validCategories = ['Groceries', 'Dining', 'Shopping', 'Travel', 'Health', 'Personal', 'Gifts', 'Misc'];
+  if (!validCategories.includes(requestData.category)) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Invalid category'
+    })).setMimeType(ContentService.MimeType.JSON)
+      .setHeaders(headers);
+  }
+  
+  // Get sheet and append data
+  const sheet = getSheet();
+  const timestamp = new Date();
+  const row = [
+    timestamp,
+    amount,
+    requestData.category,
+    requestData.notes || ''
+  ];
+  
+  sheet.appendRow(row);
+  
+  // Get updated budget info
+  const budgetInfo = getBudgetInfo();
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    success: true,
+    message: 'Expense added successfully',
+    budget: budgetInfo
+  })).setMimeType(ContentService.MimeType.JSON)
+    .setHeaders(headers);
+}
+
+/**
+ * Handles undoing the last expense entry
+ * 
+ * @param {Object} headers - CORS headers
+ * @returns {TextOutput} JSON response
+ */
+function handleUndo(requestData, headers) {
+  // Validate API key
+  if (requestData.apiKey !== CONFIG.API_KEY) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Invalid API key'
+    })).setMimeType(ContentService.MimeType.JSON)
+      .setHeaders(headers);
+  }
+  
+  const sheet = getSheet();
+  const lastRow = sheet.getLastRow();
+  
+  if (lastRow <= 1) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'No expenses to undo'
+    })).setMimeType(ContentService.MimeType.JSON)
+      .setHeaders(headers);
+  }
+  
+  // Delete last row (excluding header)
+  sheet.deleteRow(lastRow);
+  
+  // Get updated budget info
+  const budgetInfo = getBudgetInfo();
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    success: true,
+    message: 'Last expense deleted',
+    budget: budgetInfo
+  })).setMimeType(ContentService.MimeType.JSON)
+    .setHeaders(headers);
+}
+
+/**
+ * Handles fetching current budget information
+ * 
+ * @param {Object} headers - CORS headers
+ * @returns {TextOutput} JSON response with budget data
+ */
+function handleGetBudget(headers) {
+  const budgetInfo = getBudgetInfo();
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    success: true,
+    budget: budgetInfo
+  })).setMimeType(ContentService.MimeType.JSON)
+    .setHeaders(headers);
+}
+
+// ============================================================================
+// SHEET OPERATIONS
+// ============================================================================
+
+/**
+ * Gets the Google Sheet object
+ * 
+ * @returns {Sheet} The Transactions sheet
+ */
+function getSheet() {
+  const spreadsheet = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  let sheet = spreadsheet.getSheetByName(CONFIG.SHEET_NAME);
+  
+  // Create sheet if it doesn't exist
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(CONFIG.SHEET_NAME);
+    // Add header row
+    sheet.appendRow(['Date', 'Amount', 'Category', 'Notes']);
+  }
+  
+  return sheet;
+}
+
+// ============================================================================
+// BUDGET CALCULATION
+// ============================================================================
+
+/**
+ * Calculates current budget information from transactions
+ * 
+ * @returns {Object} Budget object with startingBudget, totalSpent, remaining
+ */
+function getBudgetInfo() {
+  const sheet = getSheet();
+  const dataRange = sheet.getDataRange();
+  const values = dataRange.getValues();
+  
+  // Skip header row (row 1)
+  let totalSpent = 0;
+  for (let i = 1; i < values.length; i++) {
+    const amount = parseFloat(values[i][1]); // Amount is in column B (index 1)
+    if (!isNaN(amount) && amount > 0) {
+      totalSpent += amount;
+    }
+  }
+  
+  const remaining = CONFIG.STARTING_BUDGET - totalSpent;
+  
+  return {
+    startingBudget: CONFIG.STARTING_BUDGET,
+    totalSpent: totalSpent,
+    remaining: remaining
+  };
+}
+
